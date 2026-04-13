@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beastsaber-app.local/schemas/bsaber-map-list.json",
+  "title": "BeastSaber map list export",
+  "type": "object",
+  "required": ["format", "version", "exportedAt", "maps"],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "bsaber-map-list"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "exportedAt": {
+      "type": "string",
+      "description": "ISO-8601 timestamp (UTC recommended)"
+    },
+    "maps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/mapEntry" }
+    }
+  },
+  "$defs": {
+    "mapEntry": {
+      "type": "object",
+      "required": ["key", "hash", "songName", "levelAuthorName", "downloadURL"],
+      "additionalProperties": true,
+      "properties": {
+        "key": { "type": "string", "description": "BeatSaver map key" },
+        "hash": { "type": "string", "description": "Version hash for the ZIP" },
+        "songName": { "type": "string" },
+        "songSubName": { "type": "string" },
+        "levelAuthorName": { "type": "string" },
+        "downloadURL": { "type": "string", "format": "uri" },
+        "coverURL": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}

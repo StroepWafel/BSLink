@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BeastSaber Downloader</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="app-header-inner">
+        <div class="brand">
+          <h1 class="app-title">BeastSaber Downloader</h1>
+          <p class="app-tagline">
+            Load a BeatSaver map list, pick where ZIPs go, then download—or receive the list from the Android app over your LAN.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div class="columns">
+        <div class="column column-workflow">
+          <section class="panel" aria-labelledby="h-list">
+            <div class="panel-head">
+              <span class="step-badge" aria-hidden="true">1</span>
+              <div>
+                <h2 id="h-list" class="panel-title">Map list</h2>
+                <p class="panel-desc">Open a <code>bsaber-map-list</code> JSON export. Metadata comes from BeatSaver.</p>
+              </div>
+            </div>
+            <div class="panel-actions">
+              <button type="button" class="btn btn-primary" id="btnImport">Import JSON file…</button>
+            </div>
+            <p id="listSummary" class="status-line muted">No list loaded.</p>
+            <ul id="mapPreview" class="map-preview"></ul>
+          </section>
+
+          <section class="panel" aria-labelledby="h-folder">
+            <div class="panel-head">
+              <span class="step-badge" aria-hidden="true">2</span>
+              <div>
+                <h2 id="h-folder" class="panel-title">Download folder</h2>
+                <p class="panel-desc">ZIPs are saved here. Choose before downloading or before phone auto-download.</p>
+              </div>
+            </div>
+            <div class="panel-actions">
+              <button type="button" class="btn btn-primary" id="btnFolder">Choose folder…</button>
+            </div>
+            <p id="folderPath" class="path-line muted">Not set.</p>
+          </section>
+
+          <section class="panel panel-accent" aria-labelledby="h-dl">
+            <div class="panel-head">
+              <span class="step-badge" aria-hidden="true">3</span>
+              <div>
+                <h2 id="h-dl" class="panel-title">Download ZIPs</h2>
+                <p class="panel-desc">Fetches each map from BeatSaver into your chosen folder.</p>
+              </div>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="chkExtractZips" />
+              <span>Extract each ZIP into its own folder after download</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="chkDeleteZipsAfterExtract" disabled />
+              <span>Delete ZIP after a successful extract</span>
+            </label>
+            <p class="muted hint-block">
+              Folders match the ZIP name (e.g. <span class="mono">key — Song</span>). Enable delete only if you keep the extracted songs.
+              Applies to manual downloads and to phone auto-download over LAN.
+            </p>
+            <div class="panel-actions">
+              <button type="button" class="btn btn-primary" id="btnDownload" disabled>Download all ZIPs</button>
+            </div>
+            <p id="dlStatus" class="status-line muted" role="status"></p>
+          </section>
+        </div>
+
+        <div class="column column-side">
+          <section class="panel" aria-labelledby="h-bplist">
+            <div class="panel-head panel-head-compact">
+              <h2 id="h-bplist" class="panel-title">Playlist file</h2>
+              <p class="panel-desc">Optional <span class="mono">playlist.bplist</span> next to your ZIPs.</p>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span class="field-label">Title</span>
+                <input id="plTitle" type="text" value="My list" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span class="field-label">Author</span>
+                <input id="plAuthor" type="text" value="BeastSaber" autocomplete="off" />
+              </label>
+            </div>
+            <div class="panel-actions">
+              <button type="button" class="btn btn-secondary" id="btnBplist" disabled>Write playlist.bplist</button>
+            </div>
+            <p id="bpStatus" class="status-line muted" role="status"></p>
+          </section>
+
+          <section class="panel panel-lan" aria-labelledby="h-lan">
+            <div class="panel-head panel-head-compact">
+              <h2 id="h-lan" class="panel-title">Send to PC <span class="pill">LAN</span></h2>
+              <p class="panel-desc">Let the phone push the same list over Wi‑Fi. Scan the QR in the Android app or paste URL + token.</p>
+            </div>
+
+            <label class="checkbox-row">
+              <input type="checkbox" id="lanAllowAutoDownload" />
+              <span>Allow automatic downloads when the phone requests it</span>
+            </label>
+            <p class="muted hint-block">If this stays off, lists still import—but ZIPs never download automatically, even if the phone enables auto-download.</p>
+
+            <div class="lan-actions">
+              <button type="button" class="btn btn-primary" id="btnLanStart">Start receiver</button>
+              <button type="button" class="btn btn-danger-ghost" id="btnLanStop" disabled>Stop</button>
+            </div>
+
+            <div id="lanQrWrap" class="lan-qr-wrap" hidden>
+              <p class="muted qr-label">Scan with the app: <span class="mono">Send to PC → Scan QR</span></p>
+              <div class="qr-frame">
+                <img id="lanQr" width="200" height="200" alt="Connection QR code" />
+              </div>
+            </div>
+
+            <pre id="lanInfo" class="lan-info-box" aria-live="polite"></pre>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

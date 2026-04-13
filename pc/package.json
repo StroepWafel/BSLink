@@ -1,0 +1,43 @@
+{
+  "name": "beastsaber-pc",
+  "version": "1.0.0",
+  "description": "Import BeastSaber map lists and download ZIPs from BeatSaver",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win dir",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "extract-zip": "^2.0.1",
+    "qrcode": "^1.5.4"
+  },
+  "build": {
+    "appId": "com.beastsaber.pc",
+    "productName": "BeastSaber Downloader",
+    "icon": "build/icon.png",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    }
+  }
+}

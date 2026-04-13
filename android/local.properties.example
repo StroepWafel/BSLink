@@ -1,0 +1,3 @@
+sdk.dir=C\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
+# Optional: full JDK 17+ (not JRE) if Gradle cannot find jlink:
+# org.gradle.java.home=C\:\\Program Files\\Eclipse Adoptium\\jdk-17.x.x-hotspot

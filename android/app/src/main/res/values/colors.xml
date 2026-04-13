@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher adaptive-icon background (matches artwork’s white field) -->
+    <color name="ic_launcher_background">#FFFFFFFF</color>
+</resources>

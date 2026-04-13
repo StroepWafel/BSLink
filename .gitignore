@@ -1,0 +1,48 @@
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- IDE / editors ---
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Logs ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Secrets / local env ---
+.env
+.env.*
+!.env.example
+**/local.properties
+
+# --- Android / Gradle ---
+gradletemp.zip
+android/.gradle/
+android/.kotlin/
+**/.cxx/
+**/build/
+!**/src/**/build/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.keystore
+*.jks
+
+# --- Node (PC / tools) ---
+pc/node_modules/
+node_modules/
+
+# --- Electron / PC app output ---
+pc/dist/
+pc/out/
