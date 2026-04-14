@@ -50,7 +50,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
-      "createStartMenuShortcut": "always",
+      "createStartMenuShortcut": true,
       "shortcutName": "BSLink",
       "runAfterFinish": true,
       "artifactName": "BSLink-Setup-${version}.${ext}"
