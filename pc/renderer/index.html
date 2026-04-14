@@ -83,6 +83,19 @@
             aria-labelledby="tab-relay"
           >
             <div class="tab-panel-inner">
+              <section class="panel" aria-labelledby="h-folder-relay">
+                <div class="panel-head panel-head-compact">
+                  <h2 id="h-folder-relay" class="panel-title">Download folder</h2>
+                  <p class="panel-desc">
+                    ZIPs are saved here. Required for phone auto-download and for downloading ZIPs from Import from file.
+                  </p>
+                </div>
+                <div class="panel-actions">
+                  <button type="button" class="btn btn-primary" id="btnFolderRelay">Choose folder…</button>
+                </div>
+                <p id="folderPathRelay" class="path-line muted">Not set.</p>
+              </section>
+
               <section class="panel panel-relay" aria-labelledby="h-relay">
                 <div class="panel-head panel-head-compact">
                   <h2 id="h-relay" class="panel-title">Internet relay</h2>
@@ -124,17 +137,17 @@
             hidden
           >
             <div class="tab-panel-inner">
-              <section class="panel" aria-labelledby="h-folder">
+              <section class="panel" aria-labelledby="h-folder-receive">
                 <div class="panel-head panel-head-compact">
-                  <h2 id="h-folder" class="panel-title">Download folder</h2>
+                  <h2 id="h-folder-receive" class="panel-title">Download folder</h2>
                   <p class="panel-desc">
                     ZIPs are saved here. Required for phone auto-download and for downloading ZIPs from Import from file.
                   </p>
                 </div>
                 <div class="panel-actions">
-                  <button type="button" class="btn btn-primary" id="btnFolder">Choose folder…</button>
+                  <button type="button" class="btn btn-primary" id="btnFolderReceive">Choose folder…</button>
                 </div>
-                <p id="folderPath" class="path-line muted">Not set.</p>
+                <p id="folderPathReceive" class="path-line muted">Not set.</p>
               </section>
 
               <section class="panel panel-lan" aria-labelledby="h-lan">
@@ -174,6 +187,19 @@
             hidden
           >
             <div class="tab-panel-inner">
+              <section class="panel" aria-labelledby="h-folder-import">
+                <div class="panel-head panel-head-compact">
+                  <h2 id="h-folder-import" class="panel-title">Download folder</h2>
+                  <p class="panel-desc">
+                    ZIPs are saved here. Required for phone auto-download and for downloading ZIPs from Import from file.
+                  </p>
+                </div>
+                <div class="panel-actions">
+                  <button type="button" class="btn btn-primary" id="btnFolderImport">Choose folder…</button>
+                </div>
+                <p id="folderPathImport" class="path-line muted">Not set.</p>
+              </section>
+
               <section class="panel" aria-labelledby="h-list">
                 <div class="panel-head">
                   <div>
@@ -191,7 +217,7 @@
               <section class="panel panel-accent" aria-labelledby="h-dl">
                 <div class="panel-head panel-head-compact">
                   <h2 id="h-dl" class="panel-title">Download ZIPs</h2>
-                  <p class="panel-desc">Fetches each map from BeatSaver into your chosen folder (set on Receive over LAN).</p>
+                  <p class="panel-desc">Fetches each map from BeatSaver into your download folder (choose above).</p>
                 </div>
                 <div class="panel-actions">
                   <button type="button" class="btn btn-primary" id="btnDownload" disabled>Download all ZIPs</button>

@@ -6,7 +6,15 @@ let outDir = null;
 
 const el = (id) => document.getElementById(id);
 
+const FOLDER_PATH_IDS = ['folderPathRelay', 'folderPathReceive', 'folderPathImport'];
 
+function syncFolderPathDisplays() {
+  const text = outDir || 'Not set.';
+  FOLDER_PATH_IDS.forEach((id) => {
+    const node = el(id);
+    if (node) node.textContent = text;
+  });
+}
 
 const STORAGE_LAN_ALLOW_AUTO = 'beastsaber.lanAllowAutoDownload';
 
@@ -90,7 +98,7 @@ function applySettingsToUi(s) {
 
   outDir = s.outDir || null;
 
-  el('folderPath').textContent = outDir || 'Not set.';
+  syncFolderPathDisplays();
 
 
 
@@ -431,23 +439,23 @@ el('btnImport').onclick = async () => {
 
 
 
-el('btnFolder').onclick = async () => {
+function wireFolderPicker() {
+  const open = async () => {
+    const p = await window.bs.selectFolder();
+    if (p) {
+      outDir = p;
+      syncFolderPathDisplays();
+      refreshButtons();
+      saveSettings();
+    }
+  };
+  ['btnFolderRelay', 'btnFolderReceive', 'btnFolderImport'].forEach((id) => {
+    const b = el(id);
+    if (b) b.onclick = open;
+  });
+}
 
-  const p = await window.bs.selectFolder();
-
-  if (p) {
-
-    outDir = p;
-
-    el('folderPath').textContent = p;
-
-    refreshButtons();
-
-    saveSettings();
-
-  }
-
-};
+wireFolderPicker();
 
 
 
