@@ -1,0 +1,121 @@
+# Manual release: builds Windows PC portable + Android debug APK, uploads to a GitHub Release.
+# Run: Actions → Release → Run workflow → enter version (e.g. 1.2.0).
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (semver, e.g. 1.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build-pc:
+    name: PC (Windows portable)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: pc/package-lock.json
+
+      - name: Set package version
+        run: npm pkg set version=${{ inputs.version }} --prefix pc
+
+      - name: Install & build
+        working-directory: pc
+        run: |
+          npm ci
+          npm run dist:portable
+
+      - name: Stage release filename (no spaces)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path pc/dist -Filter *.exe | Select-Object -First 1
+          if (-not $exe) { throw "No .exe in pc/dist" }
+          Copy-Item -LiteralPath $exe.FullName -Destination "pc/dist/BeastSaber-Downloader-${{ inputs.version }}.exe"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-portable
+          path: pc/dist/BeastSaber-Downloader-${{ inputs.version }}.exe
+
+  build-android:
+    name: Android (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Android SDK packages
+        run: |
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          yes | sdkmanager --licenses || true
+
+      - name: local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: assembleDebug
+        working-directory: android
+        run: |
+          gradle assembleDebug --no-daemon \
+            -PciVersionName=${{ inputs.version }} \
+            -PciVersionCode=${{ github.run_number }}
+
+      - name: Rename APK
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk "BeastSaber-Android-${{ inputs.version }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: BeastSaber-Android-${{ inputs.version }}.apk
+
+  publish:
+    name: Create GitHub Release
+    needs: [build-pc, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pc-portable
+          path: assets
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-apk
+          path: assets
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: BeastSaber ${{ inputs.version }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            assets/BeastSaber-Downloader-${{ inputs.version }}.exe
+            assets/BeastSaber-Android-${{ inputs.version }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

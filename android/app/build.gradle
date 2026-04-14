@@ -13,8 +13,10 @@ android {
         applicationId 'com.beastsaber.app'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        def ciVersionName = project.hasProperty('ciVersionName') ? project.property('ciVersionName').toString() : '1.0'
+        def ciVersionCode = project.hasProperty('ciVersionCode') ? project.property('ciVersionCode').toString().toInteger() : 1
+        versionCode ciVersionCode
+        versionName ciVersionName
     }
 
     buildTypes {
