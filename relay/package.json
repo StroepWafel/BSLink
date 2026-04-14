@@ -1,0 +1,16 @@
+{
+  "name": "beastsaber-relay",
+  "version": "1.0.0",
+  "description": "Intermediary HTTPS relay for BeastSaber map list JSON (phone to PC over internet)",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

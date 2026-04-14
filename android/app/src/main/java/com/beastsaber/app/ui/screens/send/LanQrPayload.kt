@@ -3,8 +3,9 @@ package com.beastsaber.app.ui.screens.send
 import android.net.Uri
 
 /**
- * Parses the LAN pairing QR from the PC app:
- * `http://HOST:PORT/?token=SECRET` (or https).
+ * Parses the pairing QR from the PC app:
+ * `http://HOST:PORT/?token=SECRET`, `https://HOST/path/?token=SECRET` (relay), etc.
+ * The returned base URL must include any path prefix before `/import` on POST.
  */
 fun parseLanPairingQr(raw: String): Pair<String, String>? {
     val s = raw.trim()
@@ -20,6 +21,15 @@ fun parseLanPairingQr(raw: String): Pair<String, String>? {
     }
     val token = uri.getQueryParameter("token")?.trim().orEmpty()
     if (token.isEmpty()) return null
-    val baseUrl = "$scheme://$host:$port"
+    val rawPath = uri.path.orEmpty().trimEnd('/')
+    val pathPart = when {
+        rawPath.isEmpty() || rawPath == "/" -> ""
+        else -> rawPath
+    }
+    val defaultPort = (scheme == "https" && port == 443) || (scheme == "http" && port == 80)
+    val portPart = if (defaultPort && uri.port == -1) "" else ":$port"
+    val baseUrl = buildString {
+        append(scheme).append("://").append(host).append(portPart).append(pathPart)
+    }
     return baseUrl to token
 }

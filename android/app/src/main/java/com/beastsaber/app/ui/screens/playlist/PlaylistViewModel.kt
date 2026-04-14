@@ -8,7 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.beastsaber.app.data.export.playlistToExportJson
 import com.beastsaber.app.data.repo.PlaylistRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,5 +57,10 @@ class PlaylistViewModel(
         viewModelScope.launch {
             playlist.remove(mapId)
         }
+    }
+
+    /** Placeholder refresh for pull-to-refresh (playlist is live via Flow). */
+    suspend fun refresh() {
+        delay(350)
     }
 }

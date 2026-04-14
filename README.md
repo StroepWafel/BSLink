@@ -1,7 +1,8 @@
 # BeatSaver mobile + PC downloader
 
 - **`android/`** — Android app (Kotlin, Jetpack Compose): browse [BeatSaver](https://beatsaver.com/) maps, preview audio and ArcViewer, curate a list, export JSON or send over LAN.
-- **`pc/`** — Windows desktop app (Electron): import the list, download map ZIPs, optional `.bplist`, optional LAN receiver. Run `npm install` then `npm start` in `pc/`.
+- **`pc/`** — Windows desktop app (Electron): import the list, download map ZIPs, optional `.bplist`, LAN receiver, and optional **internet relay** client (see `relay/`).
+- **`relay/`** — Optional Node server for **Send to PC across different networks** (phone and PC not on the same Wi‑Fi). Deploy with HTTPS; see [relay/README.md](relay/README.md).
 - **`packages/export-schema/`** — JSON Schema for the shared export file (`bsaber-map-list`).
 
 Map metadata is loaded from the [BeatSaver API](https://api.beatsaver.com/docs/). Community news and articles on third-party sites are not mirrored here; the catalog matches custom maps hosted on BeatSaver.

@@ -36,6 +36,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -63,7 +67,7 @@ import com.beastsaber.app.ui.audio.AudioPreviewViewModel
 import com.beastsaber.app.ui.components.BeatSaverFilterSheetContent
 import com.beastsaber.app.ui.components.MapRow
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun SearchScreen(
     onOpenMap: (String) -> Unit,
@@ -79,6 +83,8 @@ fun SearchScreen(
     var filtersOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val filterBadgeActive = state.filters.activeFilterCount() > 0 || state.order != SearchSortOrder.Relevance
+    val pullRefreshing = state.loading && state.searched
+    val pullRefreshState = rememberPullRefreshState(pullRefreshing, onRefresh = { vm.refresh() })
 
     LaunchedEffect(state.error) {
         state.error?.let { snack.showSnackbar(it) }
@@ -186,6 +192,7 @@ fun SearchScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .pullRefresh(pullRefreshState)
         ) {
             Column(Modifier.fillMaxSize()) {
                 OutlinedTextField(
@@ -301,6 +308,11 @@ fun SearchScreen(
                 }
                 }
             }
+            PullRefreshIndicator(
+                refreshing = pullRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }

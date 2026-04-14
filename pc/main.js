@@ -1,5 +1,32 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, screen } = require('electron');
 const path = require('path');
+
+/** True when running from source (`npm run dev` / `npm start`), false in packaged builds. */
+const isDev = !app.isPackaged;
+
+function buildDevMenu() {
+  /** @type {Electron.MenuItemConstructorOptions[]} */
+  const template = [
+    ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    }
+  ];
+  return Menu.buildFromTemplate(template);
+}
 const fsSync = require('fs');
 const fs = require('fs/promises');
 
@@ -13,6 +40,11 @@ let lanToken = '';
 let lanPort = 3847;
 let lanBaseUrl = '';
 
+/** @type {AbortController | null} */
+let relayAbort = null;
+/** @type {{ baseUrl: string, sessionId: string, token: string, pairingUrl: string } | null} */
+let relaySession = null;
+
 function settingsFilePath() {
   return path.join(app.getPath('userData'), 'settings.json');
 }
@@ -23,13 +55,80 @@ const defaultSettings = {
   deleteZipsAfterExtract: false,
   lanAllowAutoDownload: false,
   plTitle: 'My list',
-  plAuthor: 'BeastSaber'
+  plAuthor: 'BeastSaber',
+  /** Public base URL of the intermediary relay (HTTPS). Empty in saved settings means use built-in default in renderer. */
+  relayUrl: 'https://bsrelay.stroepwafel.au',
+  /** @type {{ x: number, y: number, width: number, height: number, isMaximized?: boolean, isFullScreen?: boolean } | null} */
+  windowState: null
 };
+
+const MIN_W = 720;
+const MIN_H = 560;
+const DEFAULT_W = 1040;
+const DEFAULT_H = 800;
+
+function boundsIntersectWorkArea(bounds) {
+  const { x, y, width, height } = bounds;
+  const right = x + width;
+  const bottom = y + height;
+  for (const d of screen.getAllDisplays()) {
+    const w = d.workArea;
+    const wr = w.x + w.width;
+    const wb = w.y + w.height;
+    if (right > w.x && x < wr && bottom > w.y && y < wb) return true;
+  }
+  return false;
+}
+
+function normalizeSavedWindowState(ws) {
+  if (!ws || typeof ws !== 'object') return null;
+  const w = Number(ws.width);
+  const h = Number(ws.height);
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return null;
+  const width = Math.max(MIN_W, Math.min(w, 100000));
+  const height = Math.max(MIN_H, Math.min(h, 100000));
+  const x = Number(ws.x);
+  const y = Number(ws.y);
+  const hasPos = Number.isFinite(x) && Number.isFinite(y);
+  const bounds = hasPos ? { x, y, width, height } : { x: 0, y: 0, width, height };
+  if (hasPos && !boundsIntersectWorkArea(bounds)) return null;
+  return {
+    x: hasPos ? x : undefined,
+    y: hasPos ? y : undefined,
+    width,
+    height,
+    isMaximized: Boolean(ws.isMaximized),
+    isFullScreen: Boolean(ws.isFullScreen)
+  };
+}
+
+function saveMainWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const isMaximized = mainWindow.isMaximized();
+  const isFullScreen = mainWindow.isFullScreen();
+  const bounds =
+    isFullScreen || isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
+  writeSettingsSync({
+    windowState: {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      isMaximized,
+      isFullScreen
+    }
+  });
+}
 
 function readSettingsSync() {
   try {
     const raw = fsSync.readFileSync(settingsFilePath(), 'utf8');
-    return { ...defaultSettings, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    const merged = { ...defaultSettings, ...parsed };
+    if (parsed.relayUrl === undefined || parsed.relayUrl === null || String(parsed.relayUrl).trim() === '') {
+      merged.relayUrl = defaultSettings.relayUrl;
+    }
+    return merged;
   } catch {
     return { ...defaultSettings };
   }
@@ -49,21 +148,55 @@ ipcMain.handle('settings-set', (_e, patch) => {
 });
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1040,
-    height: 800,
-    minWidth: 720,
-    minHeight: 560,
+  const ws = normalizeSavedWindowState(readSettingsSync().windowState);
+  const winOpts = {
+    width: ws?.width ?? DEFAULT_W,
+    height: ws?.height ?? DEFAULT_H,
+    minWidth: MIN_W,
+    minHeight: MIN_H,
     autoHideMenuBar: true,
+    show: false,
     icon: fsSync.existsSync(windowIconPath) ? windowIconPath : undefined,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false
     }
-  });
+  };
+  if (ws && typeof ws.x === 'number' && typeof ws.y === 'number') {
+    winOpts.x = ws.x;
+    winOpts.y = ws.y;
+  }
+  mainWindow = new BrowserWindow(winOpts);
   mainWindow.setMenuBarVisibility(false);
+
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (ws?.isFullScreen) mainWindow.setFullScreen(true);
+    else if (ws?.isMaximized) mainWindow.maximize();
+    mainWindow.show();
+    if (isDev) {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    }
+  });
+
+  mainWindow.on('close', () => {
+    saveMainWindowState();
+  });
+
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    startLanServer().catch((err) => {
+      const msg = err?.message || String(err);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('lan-event', {
+          type: 'start-failed',
+          message: msg
+        });
+      }
+    });
+  });
 }
 
 function parseExport(data) {
@@ -205,19 +338,32 @@ function getLanNetworkBaseUrl() {
   return `http://${primary}:${lanPort}`;
 }
 
-ipcMain.handle('lan-start', async () => {
+function sendLanStartedToRenderer() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const base = lanBaseUrl || getLanNetworkBaseUrl();
+  mainWindow.webContents.send('lan-event', {
+    type: 'started',
+    port: lanPort,
+    token: lanToken,
+    baseUrl: base
+  });
+}
+
+async function startLanServer() {
+  if (lanServer) {
+    const ips = getLanIps();
+    const baseUrl = lanBaseUrl || getLanNetworkBaseUrl();
+    sendLanStartedToRenderer();
+    return {
+      running: true,
+      port: lanPort,
+      token: lanToken,
+      baseUrl,
+      url: `http://127.0.0.1:${lanPort}`,
+      ips
+    };
+  }
   try {
-    if (lanServer) {
-      const ips = getLanIps();
-      return {
-        running: true,
-        port: lanPort,
-        token: lanToken,
-        baseUrl: lanBaseUrl || getLanNetworkBaseUrl(),
-        url: `http://127.0.0.1:${lanPort}`,
-        ips
-      };
-    }
     lanToken = randomToken();
     const exp = express();
     exp.use(express.json({ limit: '25mb' }));
@@ -258,14 +404,7 @@ ipcMain.handle('lan-start', async () => {
     const base = getLanNetworkBaseUrl();
     lanBaseUrl = base;
 
-    if (mainWindow) {
-      mainWindow.webContents.send('lan-event', {
-        type: 'started',
-        port: lanPort,
-        token: lanToken,
-        baseUrl: base
-      });
-    }
+    sendLanStartedToRenderer();
 
     return { running: true, port: lanPort, token: lanToken, baseUrl: base, ips };
   } catch (e) {
@@ -275,7 +414,97 @@ ipcMain.handle('lan-start', async () => {
         : String(e.message || e);
     throw new Error(msg);
   }
+}
+
+async function stopRelayInternal() {
+  if (relayAbort) {
+    relayAbort.abort();
+    relayAbort = null;
+  }
+  const sess = relaySession;
+  relaySession = null;
+  if (sess) {
+    try {
+      const u = `${sess.baseUrl}/v1/sessions/${sess.sessionId}?token=${encodeURIComponent(sess.token)}`;
+      await fetch(u, { method: 'DELETE' });
+    } catch (_) {
+      /* ignore */
+    }
+  }
+}
+
+function runRelayPoll(signal) {
+  return (async () => {
+    while (!signal.aborted) {
+      const sess = relaySession;
+      if (!sess) break;
+      try {
+        const url = `${sess.baseUrl}/v1/sessions/${sess.sessionId}/wait?token=${encodeURIComponent(sess.token)}`;
+        const res = await fetch(url, { signal });
+        if (signal.aborted) break;
+        if (res.status === 204) continue;
+        if (!res.ok) throw new Error(`wait HTTP ${res.status}`);
+        const raw = await res.json();
+        const autoDownload = raw.autoDownload === true || raw.autoDownload === 'true';
+        const copy = { ...raw };
+        delete copy.autoDownload;
+        const data = parseExport(copy);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('lan-event', { type: 'import', data, autoDownload });
+        }
+      } catch (e) {
+        if (signal.aborted) break;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+  })();
+}
+
+ipcMain.handle('relay-start', async (_e, relayUrl) => {
+  await stopRelayInternal();
+  const base = String(relayUrl || '')
+    .trim()
+    .replace(/\/$/, '');
+  if (!base) {
+    throw new Error('Enter a relay URL (e.g. https://your-relay.example.com or http://127.0.0.1:3848)');
+  }
+  let r;
+  try {
+    r = await fetch(`${base}/v1/sessions`, { method: 'POST' });
+  } catch (e) {
+    throw new Error(`Cannot reach relay: ${e.message || e}`);
+  }
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`Relay returned ${r.status}: ${t.slice(0, 240)}`);
+  }
+  const j = await r.json();
+  relaySession = {
+    baseUrl: base,
+    sessionId: j.sessionId,
+    token: j.token,
+    pairingUrl: j.pairingUrl || `${base}/v1/sessions/${j.sessionId}/?token=${encodeURIComponent(j.token)}`
+  };
+  relayAbort = new AbortController();
+  runRelayPoll(relayAbort.signal).catch(() => {});
+  writeSettingsSync({ relayUrl: base });
+  return {
+    pairingUrl: relaySession.pairingUrl,
+    sessionId: relaySession.sessionId,
+    token: relaySession.token,
+    baseUrl: base
+  };
 });
+
+ipcMain.handle('relay-stop', async () => {
+  await stopRelayInternal();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('lan-event', { type: 'relay-stopped' });
+  }
+  return { running: false };
+});
+
+ipcMain.handle('lan-start', () => startLanServer());
 
 ipcMain.handle('lan-stop', async () => {
   if (lanServer) {
@@ -290,14 +519,19 @@ ipcMain.handle('lan-stop', async () => {
 });
 
 app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
+  Menu.setApplicationMenu(isDev ? buildDevMenu() : null);
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
+app.on('before-quit', () => {
+  stopRelayInternal().catch(() => {});
+});
+
 app.on('window-all-closed', () => {
+  stopRelayInternal().catch(() => {});
   if (lanServer) {
     lanServer.close();
     lanServer = null;

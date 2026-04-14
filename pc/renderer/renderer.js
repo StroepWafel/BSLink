@@ -30,7 +30,9 @@ function collectSettings() {
 
     plTitle: el('plTitle')?.value ?? 'My list',
 
-    plAuthor: el('plAuthor')?.value ?? 'BeastSaber'
+    plAuthor: el('plAuthor')?.value ?? 'BeastSaber',
+
+    relayUrl: el('relayUrl')?.value ?? ''
 
   };
 
@@ -116,6 +118,8 @@ function applySettingsToUi(s) {
 
   if (el('plAuthor')) el('plAuthor').value = s.plAuthor || 'BeastSaber';
 
+  if (el('relayUrl')) el('relayUrl').value = s.relayUrl || 'https://bsrelay.stroepwafel.au';
+
 
 
   refreshButtons();
@@ -123,6 +127,70 @@ function applySettingsToUi(s) {
 }
 
 
+
+const STORAGE_ACTIVE_TAB = 'beastsaber.activeTab';
+
+function initTabs() {
+  const tabRelay = el('tab-relay');
+  const tabReceive = el('tab-receive');
+  const tabImport = el('tab-import');
+  const panelRelay = el('panel-relay');
+  const panelReceive = el('panel-receive');
+  const panelImport = el('panel-import');
+  if (!tabRelay || !tabReceive || !tabImport || !panelRelay || !panelReceive || !panelImport) return;
+
+  const tabs = [tabRelay, tabReceive, tabImport];
+  const panels = [panelRelay, panelReceive, panelImport];
+  const TAB_KEYS = ['relay', 'receive', 'import'];
+
+  function switchTab(index) {
+    const i = ((index % 3) + 3) % 3;
+    tabs.forEach((t, j) => {
+      const active = j === i;
+      t.classList.toggle('is-active', active);
+      t.setAttribute('aria-selected', active ? 'true' : 'false');
+      t.tabIndex = active ? 0 : -1;
+    });
+    panels.forEach((p, j) => {
+      if (j === i) p.removeAttribute('hidden');
+      else p.setAttribute('hidden', '');
+    });
+    try {
+      localStorage.setItem(STORAGE_ACTIVE_TAB, TAB_KEYS[i]);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  tabRelay.addEventListener('click', () => switchTab(0));
+  tabReceive.addEventListener('click', () => switchTab(1));
+  tabImport.addEventListener('click', () => switchTab(2));
+
+  let saved;
+  try {
+    saved = localStorage.getItem(STORAGE_ACTIVE_TAB);
+  } catch (_) {
+    saved = null;
+  }
+  const keyToIndex = { relay: 0, receive: 1, import: 2 };
+  const initial =
+    saved != null && Object.prototype.hasOwnProperty.call(keyToIndex, saved)
+      ? keyToIndex[saved]
+      : 0;
+  switchTab(initial);
+
+  const tablist = tabRelay.closest('[role="tablist"]');
+  if (tablist) {
+    tablist.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const cur = tabs.findIndex((t) => t.classList.contains('is-active'));
+      const next = e.key === 'ArrowRight' ? (cur + 1) % 3 : (cur - 1 + 3) % 3;
+      switchTab(next);
+      tabs[next].focus();
+    });
+  }
+}
 
 function wirePersistListeners() {
 
@@ -172,6 +240,12 @@ function wirePersistListeners() {
     pa.addEventListener('blur', saveSettings);
   }
 
+  const relay = el('relayUrl');
+  if (relay) {
+    relay.addEventListener('input', scheduleSaveSettings);
+    relay.addEventListener('blur', saveSettings);
+  }
+
 }
 
 
@@ -195,6 +269,8 @@ function wirePersistListeners() {
   applySettingsToUi(s);
 
   wirePersistListeners();
+
+  initTabs();
 
 })();
 
@@ -242,9 +318,13 @@ function refreshButtons() {
 
   const ok = current && current.maps && current.maps.length > 0;
 
-  el('btnDownload').disabled = !ok || !outDir;
+  const dl = el('btnDownload');
 
-  el('btnBplist').disabled = !ok || !outDir;
+  const bp = el('btnBplist');
+
+  if (dl) dl.disabled = !ok || !outDir;
+
+  if (bp) bp.disabled = !ok || !outDir;
 
 }
 
@@ -382,6 +462,54 @@ el('btnBplist').onclick = async () => {
 
 
 
+async function showRelayQr(pairingUrl) {
+
+  const wrap = el('relayQrWrap');
+
+  const img = el('relayQr');
+
+  const box = el('relayInfo');
+
+  if (!wrap || !img || !pairingUrl) {
+
+    if (wrap) wrap.hidden = true;
+
+    return;
+
+  }
+
+  try {
+
+    if (!window.bs?.qrDataUrl) throw new Error('QR bridge missing');
+
+    const dataUrl = await window.bs.qrDataUrl(String(pairingUrl));
+
+    img.src = dataUrl;
+
+    wrap.hidden = false;
+
+    if (box) {
+
+      box.textContent = `Pairing URL (any network):\n${pairingUrl}`;
+
+    }
+
+  } catch (e) {
+
+    wrap.hidden = true;
+
+    if (box) {
+
+      box.textContent = `Relay started. QR failed: ${e?.message || e}\n\n${pairingUrl}`;
+
+    }
+
+  }
+
+}
+
+
+
 async function showLanQr(info) {
 
   const wrap = el('lanQrWrap');
@@ -478,6 +606,58 @@ el('btnLanStart').onclick = async () => {
 
 
 
+el('btnRelayStart').onclick = async () => {
+
+  if (!window.bs?.relayStart) {
+
+    el('relayInfo').textContent = 'Internal error: relay bridge missing.';
+
+    return;
+
+  }
+
+  const relayUrl = el('relayUrl')?.value?.trim() || '';
+
+  el('relayInfo').textContent = 'Starting relay session…';
+
+  try {
+
+    const info = await window.bs.relayStart(relayUrl);
+
+    el('btnRelayStop').disabled = false;
+
+    el('relayInfo').textContent = `Polling relay for imports.\n\n${JSON.stringify(info, null, 2)}`;
+
+    await showRelayQr(info.pairingUrl);
+
+  } catch (err) {
+
+    el('btnRelayStop').disabled = true;
+
+    el('relayQrWrap').hidden = true;
+
+    el('relayInfo').textContent = `Relay error:\n${err?.message || err}`;
+
+  }
+
+};
+
+
+
+el('btnRelayStop').onclick = async () => {
+
+  await window.bs.relayStop();
+
+  el('btnRelayStop').disabled = true;
+
+  el('relayQrWrap').hidden = true;
+
+  el('relayInfo').textContent = 'Relay session stopped.';
+
+};
+
+
+
 el('btnLanStop').onclick = async () => {
 
   await window.bs.lanStop();
@@ -542,11 +722,31 @@ window.bs.onLanEvent((ev) => {
 
   if (ev.type === 'started') {
 
+    el('btnLanStop').disabled = false;
+
     el('lanInfo').textContent =
 
       `POST JSON to:\n${ev.baseUrl}/import?token=${ev.token}\n\nToken: ${ev.token}`;
 
     showLanQr(ev);
+
+  }
+
+  if (ev.type === 'start-failed') {
+
+    el('btnLanStop').disabled = true;
+
+    el('lanQrWrap').hidden = true;
+
+    el('lanInfo').textContent = `Could not start receiver:\n${ev.message || 'Unknown error'}`;
+
+  }
+
+  if (ev.type === 'relay-stopped') {
+
+    el('btnRelayStop').disabled = true;
+
+    el('relayQrWrap').hidden = true;
 
   }
 

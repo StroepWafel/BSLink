@@ -32,6 +32,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -58,7 +62,7 @@ import com.beastsaber.app.ui.audio.AudioPreviewViewModel
 import com.beastsaber.app.ui.components.BeatSaverFilterSheetContent
 import com.beastsaber.app.ui.components.MapRow
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun BrowseScreen(
     onOpenMap: (String) -> Unit,
@@ -125,6 +129,8 @@ fun BrowseScreen(
     }
 
     val filterBadgeActive = state.filters.activeFilterCount() > 0
+    val pullRefreshing = state.loading && state.items.isNotEmpty()
+    val pullRefreshState = rememberPullRefreshState(pullRefreshing, onRefresh = { vm.refresh() })
 
     if (filtersOpen) {
         ModalBottomSheet(
@@ -179,6 +185,7 @@ fun BrowseScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .pullRefresh(pullRefreshState)
         ) {
             if (state.items.isEmpty() && state.loading) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -269,6 +276,11 @@ fun BrowseScreen(
                     }
                 }
             }
+            PullRefreshIndicator(
+                refreshing = pullRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }

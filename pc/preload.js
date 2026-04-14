@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('bs', {
   writeBplist: (payload) => ipcRenderer.invoke('write-bplist', payload),
   lanStart: () => ipcRenderer.invoke('lan-start'),
   lanStop: () => ipcRenderer.invoke('lan-stop'),
+  relayStart: (relayUrl) => ipcRenderer.invoke('relay-start', relayUrl),
+  relayStop: () => ipcRenderer.invoke('relay-stop'),
   onLanEvent: (cb) => {
     ipcRenderer.on('lan-event', (_e, data) => cb(data));
   },

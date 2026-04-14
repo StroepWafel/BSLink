@@ -3,6 +3,7 @@ package com.beastsaber.app.ui.screens.playlist
 import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,8 +13,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,7 +31,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -41,7 +49,7 @@ import com.beastsaber.app.R
 import com.beastsaber.app.ui.AppViewModelFactory
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun PlaylistScreen(
     onSendToPc: () -> Unit,
@@ -53,6 +61,20 @@ fun PlaylistScreen(
     val items by vm.items.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var playlistRefreshing by remember { mutableStateOf(false) }
+    val pullRefreshState = rememberPullRefreshState(
+        playlistRefreshing,
+        onRefresh = {
+            scope.launch {
+                playlistRefreshing = true
+                try {
+                    vm.refresh()
+                } finally {
+                    playlistRefreshing = false
+                }
+            }
+        }
+    )
 
     Scaffold(
         modifier = modifier,
@@ -84,60 +106,71 @@ fun PlaylistScreen(
             )
         }
     ) { padding ->
-        if (items.isEmpty()) {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(stringResource(R.string.playlist_empty))
-            }
-        } else {
-            LazyColumn(Modifier.padding(padding)) {
-                items(items, key = { it.mapId }) { row ->
-                    Card(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .clickable { onOpenMap(row.mapId) }
-                    ) {
-                        Row(
-                            Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .pullRefresh(pullRefreshState)
+        ) {
+            if (items.isEmpty()) {
+                Column(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(stringResource(R.string.playlist_empty))
+                }
+            } else {
+                LazyColumn {
+                    items(items, key = { it.mapId }) { row ->
+                        Card(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                                .clickable { onOpenMap(row.mapId) }
                         ) {
-                            if (row.coverURL != null) {
-                                AsyncImage(
-                                    model = row.coverURL,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(56.dp),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    row.songName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    row.levelAuthorName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            IconButton(onClick = { vm.remove(row.mapId) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Remove")
+                            Row(
+                                Modifier.padding(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (row.coverURL != null) {
+                                    AsyncImage(
+                                        model = row.coverURL,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(56.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                }
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        row.songName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        row.levelAuthorName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(onClick = { vm.remove(row.mapId) }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Remove")
+                                }
                             }
                         }
                     }
                 }
             }
+            PullRefreshIndicator(
+                refreshing = playlistRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }

@@ -119,6 +119,36 @@ class SearchViewModel(
         }
     }
 
+    /** Re-run the last search (or [search] if none yet). */
+    fun refresh() {
+        val last = lastSearchFilters
+        if (last != null) {
+            viewModelScope.launch {
+                _state.value = _state.value.copy(loading = true, error = null)
+                runCatching { repo.searchMaps(0, last) }
+                    .onSuccess { resp ->
+                        val docs = resp.docs.orEmpty()
+                        _state.value = _state.value.copy(
+                            items = docs,
+                            page = 0,
+                            loading = false,
+                            endReached = docs.isEmpty(),
+                            searched = true
+                        )
+                    }
+                    .onFailure { e ->
+                        _state.value = _state.value.copy(
+                            loading = false,
+                            error = e.message ?: "Error",
+                            searched = true
+                        )
+                    }
+            }
+        } else {
+            search()
+        }
+    }
+
     fun loadMore() {
         viewModelScope.launch {
             loadMoreMutex.withLock {
